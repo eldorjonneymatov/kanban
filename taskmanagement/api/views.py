@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
-from .permissions import IsOwner
+from .permissions import is_owner
 from taskmanagement.models import (
     Board, Column,
     Task, Subtask
@@ -13,6 +13,7 @@ from taskmanagement.serializers import (
     ColumnListSerializer, TaskDetailSerializer,
     SubtaskSerializer
 )
+
 
 
 class BoardListView(APIView):
@@ -51,13 +52,7 @@ class BoardDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if board.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
+        is_owner(board, request)
         
         serializer = BoardDetailSerializer(board)
         return Response(serializer.data)
@@ -76,14 +71,8 @@ class BoardUpdateView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if board.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
+        is_owner(board, request)
+
         serializer = BoardDetailSerializer(instance=board, data=request.data)
 
         if serializer.is_valid():
@@ -94,7 +83,7 @@ class BoardUpdateView(APIView):
         
 
 class BoardDeleteView(APIView):
-    permission_classes=(IsAuthenticated, IsOwner)
+    permission_classes=(IsAuthenticated, )
     def delete(self, request, pk):
         try:
             board = Board.objects.get(pk=pk)
@@ -106,13 +95,7 @@ class BoardDeleteView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if board.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
+        is_owner(board, request)
         
         board.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -123,13 +106,9 @@ class ColumnListView(APIView):
     def get(self, request, board_pk):
         try:
             board = Board.objects.get(pk=board_pk)
-            if board.owner != request.user:
-                return Response(
-                    {
-                        "You don`t have permission to perform this action."
-                    },
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            
+            is_owner(board, request)
+        
         except Board.DoesNotExist:
             return Response(
                 {
@@ -147,13 +126,9 @@ class ColumnCreateView(APIView):
     def post(self, request, board_pk):
         try:
             board = Board.objects.get(pk=board_pk)
-            if board.owner != request.user:
-                return Response(
-                    {
-                        "You don`t have permission to perform this action."
-                    },
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            
+            is_owner(board, request)
+
         except Board.DoesNotExist:
             return Response(
                 {
@@ -183,20 +158,14 @@ class ColumnDeleteView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if column.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
+        is_owner(column, request)
         
         column.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
 
 class TaskDetailView(APIView):
-    permission_classes = (IsAuthenticated, IsOwner)
+    permission_classes = (IsAuthenticated, )
     def get(self, request, pk):
         try:
             task = Task.objects.get(pk=pk)
@@ -208,13 +177,7 @@ class TaskDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if task.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
+        is_owner(task, request)
         
         serializer = TaskDetailSerializer(task)
         return Response(serializer.data)
@@ -225,13 +188,7 @@ class TaskCreateView(APIView):
     def post(self, request, board_pk):
         try:
             board = Board.objects.get(pk=board_pk)
-            if board.owner != request.user:
-                return Response(
-                    {
-                        "You don`t have permission to perform this action."
-                    },
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            is_owner(board, request)
             
         except Board.DoesNotExist:
             return Response(
@@ -265,14 +222,8 @@ class TaskUpdateView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if task.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
+        is_owner(task, request)
+
         serializer = TaskDetailSerializer(instance=task, data=request.data)
 
         if serializer.is_valid():
@@ -295,13 +246,7 @@ class TaskDeleteView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if task.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
+        is_owner(task, request)
         
         task.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -312,13 +257,9 @@ class SubtaskCreateView(APIView):
     def post(self, request, task_pk):
         try:
             task = Task.objects.get(pk=task_pk)
-            if task.owner != request.user:
-                return Response(
-                    {
-                        "You don`t have permission to perform this action."
-                    },
-                    status=status.HTTP_403_FORBIDDEN
-                )
+            
+            is_owner(task, request)
+
         except Task.DoesNotExist:
             return Response(
                 {
@@ -353,13 +294,31 @@ class SubtaskDeleteView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if subtask.owner != request.user:
-            return Response(
-                {
-                    'error': 'You do not have permission to perform this action'
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
+        is_owner(subtask, request)
         
         subtask.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class SubtaskUpdateView(APIView):
+    permission_classes = (IsAuthenticated, )
+    def put(self, request, pk):
+        try:
+            subtask = Subtask.objects.get(pk=pk)
+        except:
+            return Response(
+                {
+                    "error": "Subtask not found."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        is_owner(subtask, request)
+
+        serializer = SubtaskSerializer(data=request.data, instance=subtask)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
